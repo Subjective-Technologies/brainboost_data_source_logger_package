@@ -1,0 +1,3 @@
+# Editable local package
+-e /brainboost/packages/brainboost_configuration_package
+pandas

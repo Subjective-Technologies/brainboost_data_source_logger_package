@@ -1,0 +1,11 @@
+# MANIFEST.in
+
+# Exclude virtual environments
+exclude venv/*
+exclude .venv/*
+exclude env/*
+exclude .env/*
+exclude context
+
+# Optionally exclude other unnecessary files or directories
+global-exclude *.pyc __pycache__ *.pyo *.pyd
