@@ -2,22 +2,16 @@ import os
 import sys
 import traceback
 import re
-from typing import Any, Optional
+from typing import Optional
 import csv
 import requests
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime
 from brainboost_data_source_logger_package.Notifications import Notifications
 
 
 from brainboost_data_source_logger_package.BBLogEntry import BBLogEntry  # Replace with actual import path
 from brainboost_configuration_package.BBConfig import BBConfig
-
-
-def _pd():
-    import pandas as pd
-
-    return pd
 
 class BBLogger:
     _process_name: Optional[str] = None
@@ -203,107 +197,6 @@ class BBLogger:
             print(f'Failed to write to log file: {e}')
 
     @classmethod
-    def get_page(cls, page_num: int) -> Any:
-        """
-        Retrieve a specific page of log entries from today's log file as a pandas DataFrame.
-
-        :param page_num: The page number to retrieve (1-based).
-        :return: pandas DataFrame containing log entries for the specified page.
-        :raises FileNotFoundError: If today's log file does not exist.
-        :raises ValueError: If the page number is invalid.
-        """
-        pd = _pd()
-        # Retrieve page size from configuration
-        page_size = cls._get_config('log_page_size')
-        
-        # Construct the log file path
-        log_file_path = cls._get_log_file_path()
-
-        # Check if the log file exists
-        if not os.path.exists(log_file_path):
-            raise FileNotFoundError(f"Log file for today does not exist: {log_file_path}")
-
-        try:
-            # Open and read the log file
-            with open(log_file_path, 'r', encoding='utf-8') as log_file:
-                reader = csv.reader(
-                    log_file,
-                    delimiter=cls._get_config('log_delimiter'),
-                    quotechar="'"
-                )
-                logs = list(reader)
-
-                # Extract headers if present
-                if logs and logs[0] == cls._get_config('log_columns'):
-                    headers = logs[0]
-                    logs = logs[1:]
-                else:
-                    headers = cls._get_config('log_columns')
-
-                total_logs = len(logs)
-                total_pages = (total_logs + page_size - 1) // page_size  # Ceiling division
-
-                # Validate page number
-                if page_num < 1 or page_num > total_pages:
-                    raise ValueError(f"Invalid page number: {page_num}. Total pages available: {total_pages}.")
-
-                # Calculate start and end indices for slicing
-                start_index = (page_num - 1) * page_size
-                end_index = start_index + page_size
-
-                # Slice the logs for the requested page
-                selected_logs = logs[start_index:end_index]
-
-                # Convert the selected logs to a pandas DataFrame
-                df = pd.DataFrame(selected_logs, columns=headers)
-                return df
-
-        except IOError as e:
-            print(f"Failed to read log file: {e}")
-            return pd.DataFrame()
-
-    @classmethod
-    def get_logs_in_range(cls, date: str, start_line: int, end_line: int):
-        """
-        Retrieve log lines for a given date within a specified range.
-
-        :param date: The date of the log file in YYYY_MM_DD format.
-        :param start_line: The starting line number (1-based, inclusive).
-        :param end_line: The ending line number (inclusive).
-        :return: Pandas DataFrame of log entries within the specified range.
-        """
-        pd = _pd()
-        log_file_path = os.path.join(cls._get_config('log_path'), f"{cls._get_config('log_prefix')}_log_{date}.log")
-
-        if not os.path.exists(log_file_path):
-            raise FileNotFoundError(f"Log file for {date} does not exist: {log_file_path}")
-
-        try:
-            with open(log_file_path, 'r', encoding='utf-8') as log_file:
-                reader = csv.reader(
-                    log_file,
-                    delimiter=cls._get_config('log_delimiter'),
-                    quotechar="'"
-                )
-                logs = list(reader)
-
-                # Skip header row if it exists
-                if logs and logs[0] == cls._get_config('log_columns'):
-                    headers = logs[0]
-                    logs = logs[1:]
-                else:
-                    headers = None
-
-                if start_line < 1 or end_line > len(logs) or start_line > end_line:
-                    raise ValueError(f"Invalid range: start_line={start_line}, end_line={end_line}, total_lines={len(logs)}")
-
-                selected_logs = logs[start_line - 1:end_line]
-                return pd.DataFrame(selected_logs, columns=headers)
-        except IOError as e:
-            print(f"Failed to read log file: {e}")
-            return pd.DataFrame()
-
-    @classmethod
     def get_total_amount_of_pages(cls, date: Optional[str] = None) -> int:
         """
         Calculate the total number of pages available in a log file based on the page size.
@@ -352,116 +245,6 @@ class BBLogger:
             else:
                 return 0  # Or handle the error as needed
             
-    @classmethod
-    def read_logs_from_date(cls, date: str) -> Any:
-        """
-        Read log lines from a specific date and return them as a pandas DataFrame.
-
-        :param date: The date of the log file in 'YYYYMMDD' format, e.g., '20240110'.
-        :return: pandas DataFrame containing the log entries.
-        :raises ValueError: If the date format is incorrect.
-        :raises FileNotFoundError: If the log file for the given date does not exist.
-        """
-        pd = _pd()
-        # Validate date format
-        if not isinstance(date, str) or len(date) != 8 or not date.isdigit():
-            raise ValueError("Date must be a string in 'YYYYMMDD' format, e.g., '20240110'.")
-
-        # Convert to 'YYYY_MM_DD'
-        formatted_date = f"{date[:4]}_{date[4:6]}_{date[6:]}"
-
-        # Construct log file path
-        log_file_path = os.path.join(
-            cls._get_config('log_path'),
-            f"{cls._get_config('log_prefix')}_log_{formatted_date}.log"
-        )
-
-        if not os.path.exists(log_file_path):
-            raise FileNotFoundError(f"Log file for date {date} does not exist: {log_file_path}")
-
-        try:
-            # Determine if the log file has a header
-            with open(log_file_path, 'r', encoding='utf-8') as f:
-                first_line = f.readline().strip()
-                has_header = first_line == ",".join(cls._get_config('log_columns'))
-
-            # Read the log file into a pandas DataFrame
-            df = pd.read_csv(
-                log_file_path,
-                delimiter=cls._get_config('log_delimiter'),
-                quotechar="'",
-                encoding='utf-8',
-                header=0 if has_header else None,
-                names=cls._get_config('log_columns') if not has_header else None
-            )
-
-            return df
-        except Exception as e:
-            print(f"Failed to read log file: {e}")
-            return pd.DataFrame()
-        
-    @classmethod
-    def get_logs_between_timestampt_and_timestampt(cls, t1: str, t2: str) -> Any:
-        """
-        Retrieve all log entries between two timestamps across multiple log files.
-
-        :param t1: The start timestamp in 'YYYYMMDDHHMMSS' format.
-        :param t2: The end timestamp in 'YYYYMMDDHHMMSS' format.
-        :return: pandas DataFrame containing log entries between t1 and t2.
-        :raises ValueError: If the timestamp formats are incorrect or t1 > t2.
-        """
-        pd = _pd()
-        # Validate and parse timestamps
-        try:
-            dt1 = datetime.strptime(t1, '%Y%m%d%H%M%S')
-            dt2 = datetime.strptime(t2, '%Y%m%d%H%M%S')
-        except ValueError as ve:
-            raise ValueError("Timestamps must be in 'YYYYMMDDHHMMSS' format.") from ve
-
-        if dt1 > dt2:
-            raise ValueError("Start timestamp t1 must be less than or equal to end timestamp t2.")
-
-        # Generate list of dates between dt1 and dt2 inclusive
-        date_list = []
-        current_date = dt1.date()
-        end_date = dt2.date()
-        while current_date <= end_date:
-            date_str = current_date.strftime('%Y%m%d')  # 'YYYYMMDD'
-            date_list.append(date_str)
-            current_date += timedelta(days=1)
-
-        # Initialize list to collect DataFrames
-        log_dfs = []
-        for date_str in date_list:
-            try:
-                df = cls.read_logs_from_date(date_str)
-                log_dfs.append(df)
-            except FileNotFoundError:
-                print(f"Log file for date {date_str} does not exist. Skipping.")
-            except Exception as e:
-                print(f"Failed to read log file for date {date_str}: {e}")
-
-        if not log_dfs:
-            print("No log entries found between the specified timestamps.")
-            return pd.DataFrame()
-
-        # Concatenate all DataFrames
-        all_logs_df = pd.concat(log_dfs, ignore_index=True)
-
-        # Convert 'timestamp' to datetime
-        try:
-            all_logs_df['timestamp'] = pd.to_datetime(all_logs_df['timestamp'], format='%Y%m%d%H%M%S')
-        except Exception as e:
-            print(f"Failed to convert 'timestamp' to datetime: {e}")
-            return pd.DataFrame()
-
-        # Filter logs between t1 and t2
-        mask = (all_logs_df['timestamp'] >= dt1) & (all_logs_df['timestamp'] <= dt2)
-        filtered_logs_df = all_logs_df.loc[mask].reset_index(drop=True)
-
-        return filtered_logs_df
-
-        
     @classmethod
     def log(cls, message, telegram: bool = False, slack: bool = False, url_notification: bool = False):
         if cls._normalize_bool(cls._get_config('log_debug_mode')):
