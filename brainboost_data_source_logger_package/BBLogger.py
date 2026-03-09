@@ -2,17 +2,22 @@ import os
 import sys
 import traceback
 import re
-from typing import Optional
+from typing import Any, Optional
 import csv
 import requests
 import sqlite3
-import pandas as pd
 from datetime import datetime, timedelta
 from brainboost_data_source_logger_package.Notifications import Notifications
 
 
 from brainboost_data_source_logger_package.BBLogEntry import BBLogEntry  # Replace with actual import path
 from brainboost_configuration_package.BBConfig import BBConfig
+
+
+def _pd():
+    import pandas as pd
+
+    return pd
 
 class BBLogger:
     _process_name: Optional[str] = None
@@ -198,7 +203,7 @@ class BBLogger:
             print(f'Failed to write to log file: {e}')
 
     @classmethod
-    def get_page(cls, page_num: int) -> pd.DataFrame:
+    def get_page(cls, page_num: int) -> Any:
         """
         Retrieve a specific page of log entries from today's log file as a pandas DataFrame.
 
@@ -207,6 +212,7 @@ class BBLogger:
         :raises FileNotFoundError: If today's log file does not exist.
         :raises ValueError: If the page number is invalid.
         """
+        pd = _pd()
         # Retrieve page size from configuration
         page_size = cls._get_config('log_page_size')
         
@@ -266,6 +272,7 @@ class BBLogger:
         :param end_line: The ending line number (inclusive).
         :return: Pandas DataFrame of log entries within the specified range.
         """
+        pd = _pd()
         log_file_path = os.path.join(cls._get_config('log_path'), f"{cls._get_config('log_prefix')}_log_{date}.log")
 
         if not os.path.exists(log_file_path):
@@ -346,7 +353,7 @@ class BBLogger:
                 return 0  # Or handle the error as needed
             
     @classmethod
-    def read_logs_from_date(cls, date: str) -> pd.DataFrame:
+    def read_logs_from_date(cls, date: str) -> Any:
         """
         Read log lines from a specific date and return them as a pandas DataFrame.
 
@@ -355,6 +362,7 @@ class BBLogger:
         :raises ValueError: If the date format is incorrect.
         :raises FileNotFoundError: If the log file for the given date does not exist.
         """
+        pd = _pd()
         # Validate date format
         if not isinstance(date, str) or len(date) != 8 or not date.isdigit():
             raise ValueError("Date must be a string in 'YYYYMMDD' format, e.g., '20240110'.")
@@ -393,7 +401,7 @@ class BBLogger:
             return pd.DataFrame()
         
     @classmethod
-    def get_logs_between_timestampt_and_timestampt(cls, t1: str, t2: str) -> pd.DataFrame:
+    def get_logs_between_timestampt_and_timestampt(cls, t1: str, t2: str) -> Any:
         """
         Retrieve all log entries between two timestamps across multiple log files.
 
@@ -402,6 +410,7 @@ class BBLogger:
         :return: pandas DataFrame containing log entries between t1 and t2.
         :raises ValueError: If the timestamp formats are incorrect or t1 > t2.
         """
+        pd = _pd()
         # Validate and parse timestamps
         try:
             dt1 = datetime.strptime(t1, '%Y%m%d%H%M%S')
