@@ -137,6 +137,25 @@ def test_telegram_integration(monkeypatch):
     assert True
 
 
+def test_flush_does_not_start_writer():
+    writer_backup = BBLogger._writer
+    try:
+        if writer_backup is not None:
+            BBLogger.shutdown()
+        BBLogger._writer = None
+
+        BBLogger.flush()
+
+        assert BBLogger._writer is None
+
+        BBLogger.log("writer should start on first log")
+        assert BBLogger._writer is not None
+        BBLogger.flush()
+    finally:
+        BBLogger.shutdown()
+        BBLogger._writer = writer_backup
+
+
 
 
 if __name__ == "__main__":

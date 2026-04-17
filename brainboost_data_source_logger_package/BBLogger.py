@@ -416,6 +416,11 @@ class BBLogger:
             return cls._writer
 
     @classmethod
+    def _get_writer(cls):
+        with cls._writer_lock:
+            return cls._writer
+
+    @classmethod
     def _wait_for_queue(cls, writer, timeout: Optional[float]) -> None:
         if writer is None:
             return
@@ -431,7 +436,7 @@ class BBLogger:
 
     @classmethod
     def flush(cls, timeout: Optional[float] = 2.0) -> None:
-        writer = cls._ensure_writer()
+        writer = cls._get_writer()
         cls._wait_for_queue(writer, timeout)
 
     @classmethod
@@ -684,6 +689,4 @@ class BBLogger:
         except queue.Full:
             pass
 
-
-BBLogger._ensure_writer()
 atexit.register(BBLogger.shutdown)
