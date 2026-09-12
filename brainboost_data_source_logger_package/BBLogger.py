@@ -123,10 +123,7 @@ class BBLogger:
         "log_enable_files": False,
         "log_enable_terminal_output": True,
         "log_enable_database": False,
-        "log_sqlite3_path": os.path.join(
-            os.path.expanduser("~/.Subjective/com_subjective_userdata/com_subjective_logs"),
-            "brainboost_logs.sqlite3",
-        ),
+        "log_sqlite3_path": os.path.join(os.path.expanduser("~/.Subjective/com_subjective_userdata/com_subjective_logs"), "brainboost_logs.sqlite3"),
         "log_columns": ["timestamp", "log_type", "process", "code_location", "message", "processing_time"],
         "log_path": os.path.expanduser("~/.Subjective/com_subjective_userdata/com_subjective_logs"),
         "log_prefix": "brainboost",
